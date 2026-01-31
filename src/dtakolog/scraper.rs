@@ -3,6 +3,7 @@
 //! Vehicleデータを取得してgRPC経由でrust-logiに送信する
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use chrono::{offset::FixedOffset, Utc};
@@ -36,6 +37,7 @@ const PAGE_STABLE_TIMEOUT_MS: u64 = 10000;
 pub struct DtakologScraper {
     config: DtakologConfig,
     browser: Option<Browser>,
+    user_data_dir: Option<PathBuf>,
 }
 
 impl DtakologScraper {
@@ -44,6 +46,7 @@ impl DtakologScraper {
         Self {
             config,
             browser: None,
+            user_data_dir: None,
         }
     }
 
@@ -61,6 +64,7 @@ impl DtakologScraper {
                 .as_nanos()
         );
         let user_data_dir = std::env::temp_dir().join(format!("dtakolog-{}", unique_id));
+        self.user_data_dir = Some(user_data_dir.clone());
 
         // Chrome パスを取得
         let chrome_path = std::env::var("CHROME_PATH")
@@ -763,6 +767,13 @@ impl DtakologScraper {
     /// ブラウザを閉じる
     pub async fn close(&mut self) -> Result<(), ScraperError> {
         self.browser = None;
+        if let Some(dir) = self.user_data_dir.take() {
+            if let Err(e) = std::fs::remove_dir_all(&dir) {
+                warn!("Failed to clean up temp dir {}: {}", dir.display(), e);
+            } else {
+                info!("Cleaned up temp dir: {}", dir.display());
+            }
+        }
         Ok(())
     }
 
