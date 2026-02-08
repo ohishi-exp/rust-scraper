@@ -437,9 +437,28 @@ impl Scraper for EtcScraper {
     async fn close(&mut self) -> Result<(), ScraperError> {
         info!("ブラウザを終了中...");
 
-        // ページとブラウザの参照を解放
+        // ページの参照を解放
         self.page = None;
-        self.browser = None;
+
+        // ブラウザを明示的にクローズ
+        if let Some(mut browser) = self.browser.take() {
+            if let Err(e) = browser.close().await {
+                warn!("Browser close command failed: {}, killing process", e);
+                if let Some(Err(e)) = browser.kill().await {
+                    warn!("Browser kill failed: {}", e);
+                }
+            }
+            match tokio::time::timeout(Duration::from_secs(5), browser.wait()).await {
+                Ok(Ok(_)) => info!("Browser process exited cleanly"),
+                Ok(Err(e)) => warn!("Browser wait error: {}", e),
+                Err(_) => {
+                    warn!("Browser wait timeout, killing process");
+                    if let Some(Err(e)) = browser.kill().await {
+                        warn!("Browser kill failed: {}", e);
+                    }
+                }
+            }
+        }
 
         info!("ブラウザ終了完了");
         Ok(())

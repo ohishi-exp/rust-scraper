@@ -766,7 +766,26 @@ impl DtakologScraper {
 
     /// ブラウザを閉じる
     pub async fn close(&mut self) -> Result<(), ScraperError> {
-        self.browser = None;
+        if let Some(mut browser) = self.browser.take() {
+            // CDPコマンドでブラウザを正常終了
+            if let Err(e) = browser.close().await {
+                warn!("Browser close command failed: {}, killing process", e);
+                if let Some(Err(e)) = browser.kill().await {
+                    warn!("Browser kill failed: {}", e);
+                }
+            }
+            // プロセス終了を待機（最大5秒）
+            match tokio::time::timeout(Duration::from_secs(5), browser.wait()).await {
+                Ok(Ok(_)) => info!("Browser process exited cleanly"),
+                Ok(Err(e)) => warn!("Browser wait error: {}", e),
+                Err(_) => {
+                    warn!("Browser wait timeout, killing process");
+                    if let Some(Err(e)) = browser.kill().await {
+                        warn!("Browser kill failed: {}", e);
+                    }
+                }
+            }
+        }
         if let Some(dir) = self.user_data_dir.take() {
             if let Err(e) = std::fs::remove_dir_all(&dir) {
                 warn!("Failed to clean up temp dir {}: {}", dir.display(), e);
