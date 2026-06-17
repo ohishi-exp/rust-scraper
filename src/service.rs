@@ -50,7 +50,9 @@ impl From<ScrapeRequest> for ScraperConfig {
             download_path: req.download_path,
             headless: req.headless,
             timeout: Duration::from_secs(60),
-            chrome_path: std::env::var("CHROME_PATH").ok().map(std::path::PathBuf::from),
+            chrome_path: std::env::var("CHROME_PATH")
+                .ok()
+                .map(std::path::PathBuf::from),
         }
     }
 }

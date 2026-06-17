@@ -1,4 +1,4 @@
-use scraper_service::{EtcScraper, ScraperConfig, Scraper};
+use scraper_service::{EtcScraper, Scraper, ScraperConfig};
 use std::path::PathBuf;
 
 #[tokio::main]
@@ -10,11 +10,11 @@ async fn main() {
 
     // 環境変数から認証情報を取得（JSON形式）
     // 例: ETC_ACCOUNTS='[{"user_id":"user1","password":"pass1"},{"user_id":"user2","password":"pass2"}]'
-    let accounts_json = std::env::var("ETC_ACCOUNTS")
-        .expect("ETC_ACCOUNTS environment variable not set");
+    let accounts_json =
+        std::env::var("ETC_ACCOUNTS").expect("ETC_ACCOUNTS environment variable not set");
 
-    let accounts: Vec<serde_json::Value> = serde_json::from_str(&accounts_json)
-        .expect("Failed to parse ETC_ACCOUNTS JSON");
+    let accounts: Vec<serde_json::Value> =
+        serde_json::from_str(&accounts_json).expect("Failed to parse ETC_ACCOUNTS JSON");
 
     println!("=== ETC Scraper Multi-Account Test ===\n");
 
@@ -26,7 +26,7 @@ async fn main() {
 
         let config = ScraperConfig::new(username, password)
             .with_download_path(PathBuf::from("./downloads"))
-            .with_headless(false);  // デバッグ用に表示モード
+            .with_headless(false); // デバッグ用に表示モード
 
         let mut scraper = EtcScraper::new(config);
 

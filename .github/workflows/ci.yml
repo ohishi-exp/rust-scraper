@@ -1,0 +1,85 @@
+name: CI
+
+# scraper-service は library crate (no binary)。ippoan/ci-workflows の rust-ci.yml
+# は `binary_name: required` で binary repo 専用 (= --help smoke test を打つ)。
+# library 用 reusable は無いため fmt/clippy/test を inline で回し、auto-merge だけ
+# reusable を借りる。
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: sccache
+
+jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: rust-scraper
+          cache-targets: false
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: sccache --show-stats
+
+  test:
+    name: cargo test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: rust-scraper
+          cache-targets: false
+      - run: cargo test --no-fail-fast
+      - run: sccache --show-stats
+
+  ci:
+    name: ci
+    needs: [fmt, clippy, test]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "all ci jobs passed"
+
+  auto-merge:
+    name: Auto Merge
+    needs: [ci]
+    if: >-
+      always() &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false &&
+      needs.ci.result == 'success'
+    uses: ippoan/ci-workflows/.github/workflows/auto-merge.yml@main
+    permissions:
+      contents: write
+      pull-requests: write
+    secrets:
+      CI_APP_ID: ${{ secrets.CI_APP_ID }}
+      CI_APP_PRIVATE_KEY: ${{ secrets.CI_APP_PRIVATE_KEY }}
