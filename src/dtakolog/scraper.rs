@@ -6,11 +6,11 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use chrono::{offset::FixedOffset, Utc};
 use chromiumoxide::browser::{Browser, BrowserConfig};
 use chromiumoxide::cdp::browser_protocol::network::CookieParam;
 use chromiumoxide::page::ScreenshotParams;
 use chromiumoxide::Page;
+use chrono::{offset::FixedOffset, Utc};
 use futures::StreamExt;
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
@@ -367,11 +367,14 @@ impl DtakologScraper {
                     self.wait_request_idle(page).await?;
                     sleep(Duration::from_secs(3)).await;
                 } else {
-                    info!("Home button not found after popup, trying to click login button again...");
+                    info!(
+                        "Home button not found after popup, trying to click login button again..."
+                    );
                     // ログインボタンをもう一度クリック
-                    if let Ok(_) = page
+                    if page
                         .evaluate("document.querySelector('#imgLogin').click()")
                         .await
+                        .is_ok()
                     {
                         info!("Clicked login button again, waiting for navigation...");
                         self.wait_request_idle(page).await?;
@@ -385,7 +388,10 @@ impl DtakologScraper {
                                 .map_err(|e| ScraperError::JavaScript(e.to_string()))?;
 
                             if has_home_retry.into_value::<bool>().unwrap_or(false) {
-                                info!("Home button found after retry (attempt {}), clicking...", i + 1);
+                                info!(
+                                    "Home button found after retry (attempt {}), clicking...",
+                                    i + 1
+                                );
                                 page.evaluate("document.querySelector('#Button1st_7').click()")
                                     .await
                                     .map_err(|e| ScraperError::JavaScript(e.to_string()))?;
@@ -398,9 +404,7 @@ impl DtakologScraper {
                     }
                 }
             } else {
-                return Err(ScraperError::Login(
-                    "Login verification failed".to_string(),
-                ));
+                return Err(ScraperError::Login("Login verification failed".to_string()));
             }
         }
 
@@ -488,7 +492,10 @@ impl DtakologScraper {
                 .map_err(|e| ScraperError::JavaScript(e.to_string()))?;
 
             if has_service.into_value::<bool>().unwrap_or(false) {
-                info!("VenusBridgeService ready after {}s in navigate_to_main", i + 1);
+                info!(
+                    "VenusBridgeService ready after {}s in navigate_to_main",
+                    i + 1
+                );
                 service_ready = true;
                 break;
             }
@@ -500,7 +507,9 @@ impl DtakologScraper {
         }
 
         if !service_ready {
-            warn!("VenusBridgeService not ready after 15s in navigate_to_main, proceeding anyway...");
+            warn!(
+                "VenusBridgeService not ready after 15s in navigate_to_main, proceeding anyway..."
+            );
         }
 
         Ok(())
@@ -749,10 +758,12 @@ impl DtakologScraper {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| ScraperError::GrpcConnectionFailed {
-            retries: MAX_RETRIES,
-            message: "Max retries exceeded".to_string(),
-        }))
+        Err(
+            last_error.unwrap_or_else(|| ScraperError::GrpcConnectionFailed {
+                retries: MAX_RETRIES,
+                message: "Max retries exceeded".to_string(),
+            }),
+        )
     }
 
     /// gRPCに送信（プレースホルダー - 実際の実装は grpc feature で有効化）
@@ -988,7 +999,11 @@ impl DtakologScraper {
             let poll_str = poll_result.into_value::<String>().unwrap_or_default();
 
             if let Ok(poll_data) = serde_json::from_str::<serde_json::Value>(&poll_str) {
-                if poll_data.get("called").and_then(|v| v.as_bool()).unwrap_or(false) {
+                if poll_data
+                    .get("called")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+                {
                     if let Some(err) = poll_data.get("error").and_then(|v| v.as_str()) {
                         if !err.is_empty() {
                             json_str = format!(r#"{{"data":[],"error":"{}"}}"#, err);
@@ -1002,12 +1017,18 @@ impl DtakologScraper {
                             if arr.len() >= 2 {
                                 let count = arr[0].as_str().unwrap_or("0");
                                 let json_data = arr[1].as_str().unwrap_or("[]");
-                                json_str = format!(r#"{{"data":{},"error":null,"count":{}}}"#, json_data, count);
+                                json_str = format!(
+                                    r#"{{"data":{},"error":null,"count":{}}}"#,
+                                    json_data, count
+                                );
                                 info!("DVR result received after {}ms", (i + 1) * 500);
                                 break;
                             }
                         }
-                        json_str = format!(r#"{{"data":[],"error":"Invalid result format","raw":{}}}"#, result);
+                        json_str = format!(
+                            r#"{{"data":[],"error":"Invalid result format","raw":{}}}"#,
+                            result
+                        );
                         info!("DVR invalid result after {}ms", (i + 1) * 500);
                         break;
                     }
@@ -1016,7 +1037,10 @@ impl DtakologScraper {
 
             // 10秒ごとにログ出力
             if i > 0 && i % 20 == 0 {
-                info!("Still waiting for DVR callback... ({}s elapsed)", (i + 1) / 2);
+                info!(
+                    "Still waiting for DVR callback... ({}s elapsed)",
+                    (i + 1) / 2
+                );
             }
         }
 
@@ -1041,10 +1065,20 @@ impl DtakologScraper {
             debug: Option<DebugInfo>,
         }
 
-        let response: VideoNotificationResponse = serde_json::from_str(&json_str).unwrap_or_else(|e| {
-            warn!("Failed to parse video notification response: {}, raw: {}", e, json_str);
-            VideoNotificationResponse { data: Vec::new(), error: Some(format!("Parse error: {}", e)), count: None, raw: Some(json_str.clone()), debug: None }
-        });
+        let response: VideoNotificationResponse =
+            serde_json::from_str(&json_str).unwrap_or_else(|e| {
+                warn!(
+                    "Failed to parse video notification response: {}, raw: {}",
+                    e, json_str
+                );
+                VideoNotificationResponse {
+                    data: Vec::new(),
+                    error: Some(format!("Parse error: {}", e)),
+                    count: None,
+                    raw: Some(json_str.clone()),
+                    debug: None,
+                }
+            });
 
         // エラーがあればログ出力
         if let Some(ref err) = response.error {
@@ -1054,8 +1088,10 @@ impl DtakologScraper {
             }
             // デバッグ情報があれば出力
             if let Some(ref dbg) = response.debug {
-                warn!("Debug info - VenusBridgeService: {:?}, Monitoring_DvrNotification2: {:?}",
-                    dbg.has_venus_bridge_service, dbg.has_method);
+                warn!(
+                    "Debug info - VenusBridgeService: {:?}, Monitoring_DvrNotification2: {:?}",
+                    dbg.has_venus_bridge_service, dbg.has_method
+                );
             }
         }
 
@@ -1102,7 +1138,9 @@ impl DtakologScraper {
             .await
             .map_err(|e| ScraperError::JavaScript(e.to_string()))?;
 
-        let json_str = result.into_value::<String>().unwrap_or_else(|_| "[]".to_string());
+        let json_str = result
+            .into_value::<String>()
+            .unwrap_or_else(|_| "[]".to_string());
 
         let files: Vec<DvrFileInfo> = serde_json::from_str(&json_str).unwrap_or_else(|e| {
             debug!("Failed to parse video file list: {}", e);
@@ -1298,7 +1336,10 @@ mod tests {
         };
 
         let mut scraper = DtakologScraper::new(config);
-        scraper.initialize().await.expect("Failed to initialize browser");
+        scraper
+            .initialize()
+            .await
+            .expect("Failed to initialize browser");
 
         let result = scraper.scrape(None, true).await;
 
@@ -1308,7 +1349,10 @@ mod tests {
                 println!("Vehicles: {}", data.vehicles.len());
                 println!("Video notifications: {}", data.video_notifications.len());
                 for v in &data.video_notifications {
-                    println!("  - {} ({}) @ {}: {}", v.vehicle_name, v.event_type, v.dvr_datetime, v.mp4_url);
+                    println!(
+                        "  - {} ({}) @ {}: {}",
+                        v.vehicle_name, v.event_type, v.dvr_datetime, v.mp4_url
+                    );
                 }
             }
             Err(e) => {

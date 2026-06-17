@@ -5,7 +5,9 @@ use std::time::Duration;
 use async_trait::async_trait;
 use chromiumoxide::browser::{Browser, BrowserConfig};
 use chromiumoxide::cdp::browser_protocol::browser::SetDownloadBehaviorBehavior;
-use chromiumoxide::cdp::browser_protocol::page::{EventJavascriptDialogOpening, HandleJavaScriptDialogParams};
+use chromiumoxide::cdp::browser_protocol::page::{
+    EventJavascriptDialogOpening, HandleJavaScriptDialogParams,
+};
 use chromiumoxide::Page;
 use futures::StreamExt;
 use tracing::{debug, info, warn};
@@ -21,8 +23,8 @@ const DOWNLOAD_WAIT_SECS: u64 = 120;
 /// アカウント種別
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum AccountType {
-    Personal,   // 個人向け (/etc_user_meisai/)
-    Corporate,  // 法人向け (/etc_corp_meisai/)
+    Personal,  // 個人向け (/etc_user_meisai/)
+    Corporate, // 法人向け (/etc_corp_meisai/)
     Unknown,
 }
 
@@ -58,12 +60,7 @@ impl EtcScraper {
 
         std::fs::read_dir(download_dir)
             .ok()
-            .map(|entries| {
-                entries
-                    .filter_map(|e| e.ok())
-                    .map(|e| e.path())
-                    .collect()
-            })
+            .map(|entries| entries.filter_map(|e| e.ok()).map(|e| e.path()).collect())
             .unwrap_or_default()
     }
 
@@ -77,7 +74,10 @@ impl EtcScraper {
         let start = std::time::Instant::now();
         let download_dir = &self.config.download_path;
 
-        debug!("ダウンロード待機開始... (既存ファイル数: {})", existing_files.len());
+        debug!(
+            "ダウンロード待機開始... (既存ファイル数: {})",
+            existing_files.len()
+        );
 
         loop {
             if let Ok(entries) = std::fs::read_dir(download_dir) {
@@ -99,7 +99,7 @@ impl EtcScraper {
 
                     // CSVファイルを検出
                     if let Some(ext) = path.extension() {
-                        if ext.to_ascii_lowercase() == "csv" {
+                        if ext.eq_ignore_ascii_case("csv") {
                             info!("CSVファイル検出: {:?}", path);
                             return Ok(path);
                         }
@@ -150,7 +150,10 @@ impl EtcScraper {
         let new_path = original_path.with_file_name(new_filename);
 
         std::fs::rename(&original_path, &new_path)?;
-        info!("CSVファイルをリネーム: {:?} -> {:?}", original_path, new_path);
+        info!(
+            "CSVファイルをリネーム: {:?} -> {:?}",
+            original_path, new_path
+        );
 
         Ok(new_path)
     }
@@ -183,12 +186,10 @@ impl Scraper for EtcScraper {
         info!("ダウンロードパス: {}", download_path_str);
 
         // ブラウザ設定
-        let mut builder = BrowserConfig::builder()
-            .window_size(1280, 800)
-            .arg(format!(
-                "--download.default_directory={}",
-                download_path_str
-            ));
+        let mut builder = BrowserConfig::builder().window_size(1280, 800).arg(format!(
+            "--download.default_directory={}",
+            download_path_str
+        ));
 
         // Chrome実行ファイルのパスを設定
         if let Some(ref chrome_path) = self.config.chrome_path {
@@ -205,9 +206,9 @@ impl Scraper for EtcScraper {
             builder = builder.with_head();
         }
 
-        let config = builder.build().map_err(|e| {
-            ScraperError::BrowserInit(format!("ブラウザ設定エラー: {}", e))
-        })?;
+        let config = builder
+            .build()
+            .map_err(|e| ScraperError::BrowserInit(format!("ブラウザ設定エラー: {}", e)))?;
 
         let (browser, mut handler) = Browser::launch(config)
             .await
@@ -228,13 +229,20 @@ impl Scraper for EtcScraper {
 
         // JavaScriptダイアログハンドラを設定
         // confirmダイアログが開いたら自動的にOKをクリック
-        let mut dialog_events = page.event_listener::<EventJavascriptDialogOpening>().await
-            .map_err(|e| ScraperError::BrowserInit(format!("ダイアログリスナー設定エラー: {}", e)))?;
+        let mut dialog_events = page
+            .event_listener::<EventJavascriptDialogOpening>()
+            .await
+            .map_err(|e| {
+                ScraperError::BrowserInit(format!("ダイアログリスナー設定エラー: {}", e))
+            })?;
 
         let page_for_dialog = page.clone();
         tokio::spawn(async move {
             while let Some(event) = dialog_events.next().await {
-                info!("ダイアログ検出: type={:?}, message={}", event.r#type, event.message);
+                info!(
+                    "ダイアログ検出: type={:?}, message={}",
+                    event.r#type, event.message
+                );
                 let params = HandleJavaScriptDialogParams::builder()
                     .accept(true)
                     .build()
@@ -284,7 +292,10 @@ impl Scraper for EtcScraper {
         let login_link_selector = format!("a[href*='{}']", LOGIN_FUNC_CODE);
         for i in 0..10 {
             let exists: bool = page
-                .evaluate(format!(r#"document.querySelector("{}") !== null"#, login_link_selector))
+                .evaluate(format!(
+                    r#"document.querySelector("{}") !== null"#,
+                    login_link_selector
+                ))
                 .await
                 .map(|v| v.into_value().unwrap_or(false))
                 .unwrap_or(false);
@@ -297,11 +308,13 @@ impl Scraper for EtcScraper {
         }
 
         // クリックしてナビゲーションを待機
-        let element = page.find_element(&login_link_selector)
+        let element = page
+            .find_element(&login_link_selector)
             .await
             .map_err(|e| ScraperError::ElementNotFound(format!("ログインリンク: {}", e)))?;
 
-        element.click()
+        element
+            .click()
             .await
             .map_err(|e| ScraperError::Navigation(format!("ログインリンククリック: {}", e)))?;
 
@@ -406,7 +419,10 @@ impl Scraper for EtcScraper {
 
     async fn download(&mut self) -> Result<PathBuf, ScraperError> {
         let page = self.get_page()?.clone();
-        info!("CSVダウンロード処理開始... (アカウント種別: {:?})", self.account_type);
+        info!(
+            "CSVダウンロード処理開始... (アカウント種別: {:?})",
+            self.account_type
+        );
 
         // 現在のページ上のリンクをデバッグ出力
         let links_debug: String = page
@@ -781,7 +797,9 @@ impl EtcScraper {
         debug!("ページスクリプトの読み込みを待機中...");
         for i in 0..30 {
             let ready: bool = page
-                .evaluate("(typeof goOutput === 'function' || typeof submitOpenPage === 'function')")
+                .evaluate(
+                    "(typeof goOutput === 'function' || typeof submitOpenPage === 'function')",
+                )
                 .await
                 .map(|v| v.into_value().unwrap_or(false))
                 .unwrap_or(false);
@@ -835,7 +853,9 @@ impl EtcScraper {
 
         if no_usage {
             info!("明細データなし（当該月のご利用はありません）- スキップします");
-            return Err(ScraperError::NoUsageData("当該月のご利用はありません".into()));
+            return Err(ScraperError::NoUsageData(
+                "当該月のご利用はありません".into(),
+            ));
         }
 
         // 既存ファイルを記録（新しいファイルを検出するため）
