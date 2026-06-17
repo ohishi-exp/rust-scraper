@@ -99,7 +99,7 @@ impl EtcScraper {
 
                     // CSVファイルを検出
                     if let Some(ext) = path.extension() {
-                        if ext.to_ascii_lowercase() == "csv" {
+                        if ext.eq_ignore_ascii_case("csv") {
                             info!("CSVファイル検出: {:?}", path);
                             return Ok(path);
                         }

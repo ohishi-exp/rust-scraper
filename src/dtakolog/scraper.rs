@@ -371,9 +371,10 @@ impl DtakologScraper {
                         "Home button not found after popup, trying to click login button again..."
                     );
                     // ログインボタンをもう一度クリック
-                    if let Ok(_) = page
+                    if page
                         .evaluate("document.querySelector('#imgLogin').click()")
                         .await
+                        .is_ok()
                     {
                         info!("Clicked login button again, waiting for navigation...");
                         self.wait_request_idle(page).await?;
