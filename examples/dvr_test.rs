@@ -70,7 +70,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         builder = builder.chrome_executable(path);
     }
 
-    let config = builder.build().map_err(|e| format!("Browser config error: {}", e))?;
+    let config = builder
+        .build()
+        .map_err(|e| format!("Browser config error: {}", e))?;
     let (browser, mut handler) = Browser::launch(config).await?;
 
     // ハンドラをバックグラウンドで実行
@@ -88,11 +90,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::time::sleep(Duration::from_secs(2)).await;
 
     // ポップアップを閉じる
-    let _ = page.evaluate(r#"
+    let _ = page
+        .evaluate(
+            r#"
         try {
             document.querySelector("[id*='popup_1']")?.click();
         } catch(e) {}
-    "#).await;
+    "#,
+        )
+        .await;
 
     println!("[2/4] Logging in...");
     let login_script = format!(
@@ -108,12 +114,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::time::sleep(Duration::from_secs(3)).await;
 
     // 重複ログインポップアップ対応
-    let _ = page.evaluate(r#"
+    let _ = page
+        .evaluate(
+            r#"
         try {
             const btn = document.querySelector("[id*='popup_1']");
             if (btn) btn.click();
         } catch(e) {}
-    "#).await;
+    "#,
+        )
+        .await;
     tokio::time::sleep(Duration::from_secs(2)).await;
 
     // メインページに移動
@@ -122,12 +132,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::time::sleep(Duration::from_secs(5)).await;
 
     // VenusBridgeService確認
-    let check_result = page.evaluate(r#"
+    let check_result = page
+        .evaluate(
+            r#"
         typeof VenusBridgeService !== 'undefined' &&
         typeof VenusBridgeService.Request_DvrFileList === 'function'
-    "#).await?;
+    "#,
+        )
+        .await?;
     let service_available: bool = check_result.into_value().unwrap_or(false);
-    println!("VenusBridgeService.Request_DvrFileList available: {}", service_available);
+    println!(
+        "VenusBridgeService.Request_DvrFileList available: {}",
+        service_available
+    );
 
     if !service_available {
         println!("ERROR: VenusBridgeService not available!");
@@ -173,7 +190,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // 最初の5件の車両情報を表示
                 println!("\nVehicle list:");
                 for (i, v) in vehicles.iter().take(5).enumerate() {
-                    println!("  {}: VehicleCD={}, VehicleName={}",
+                    println!(
+                        "  {}: VehicleCD={}, VehicleName={}",
                         i + 1,
                         v.get("VehicleCD").and_then(|x| x.as_i64()).unwrap_or(-1),
                         v.get("VehicleName").and_then(|x| x.as_str()).unwrap_or("?")
@@ -182,9 +200,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 // 最初の車両のVehicleCDを取得
                 if let Some(first) = vehicles.first() {
-                    first.get("VehicleCD")
-                        .and_then(|v| v.as_i64())
-                        .unwrap_or(0)
+                    first.get("VehicleCD").and_then(|v| v.as_i64()).unwrap_or(0)
                 } else {
                     0
                 }
@@ -241,7 +257,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match result {
         Ok(val) => {
             let result_str: String = val.into_value().unwrap_or_else(|_| "ERROR".to_string());
-            println!("Result ({}ms): {}", elapsed.as_millis(),
+            println!(
+                "Result ({}ms): {}",
+                elapsed.as_millis(),
                 if result_str.len() > 200 {
                     format!("{}... ({} chars)", &result_str[..200], result_str.len())
                 } else {
@@ -254,7 +272,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if let Ok(files) = serde_json::from_str::<Vec<serde_json::Value>>(&result_str) {
                     println!("Files count: {}", files.len());
                     for (i, f) in files.iter().take(3).enumerate() {
-                        println!("  {}: {:?}", i+1, f.get("FileName"));
+                        println!("  {}: {:?}", i + 1, f.get("FileName"));
                     }
                 }
             } else if result_str == "TIMEOUT" {
@@ -300,9 +318,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match result2 {
         Ok(val) => {
             let result_str: String = val.into_value().unwrap_or_else(|_| "ERROR".to_string());
-            println!("Result ({}ms): {}",
+            println!(
+                "Result ({}ms): {}",
                 elapsed2.as_millis(),
-                if result_str.len() > 300 { format!("{}...", &result_str[..300]) } else { result_str }
+                if result_str.len() > 300 {
+                    format!("{}...", &result_str[..300])
+                } else {
+                    result_str
+                }
             );
         }
         Err(e) => println!("ERROR: {}", e),
@@ -312,10 +335,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n--- Test 3: Monitoring_DvrNotification2 (the original problem) ---");
 
     // まず利用可能か確認
-    let check = page.evaluate(r#"
+    let check = page
+        .evaluate(
+            r#"
         typeof VenusBridgeService.Monitoring_DvrNotification2 === 'function'
-    "#).await;
-    let available: bool = check.map(|v| v.into_value().unwrap_or(false)).unwrap_or(false);
+    "#,
+        )
+        .await;
+    let available: bool = check
+        .map(|v| v.into_value().unwrap_or(false))
+        .unwrap_or(false);
     println!("Monitoring_DvrNotification2 available: {}", available);
 
     if available {
@@ -351,9 +380,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(val) => {
                 let result_str: String = val.into_value().unwrap_or_else(|_| "ERROR".to_string());
                 let is_timeout = result_str == "TIMEOUT";
-                println!("Result ({}ms): {}",
+                println!(
+                    "Result ({}ms): {}",
                     elapsed3.as_millis(),
-                    if result_str.len() > 500 { format!("{}...", &result_str[..500]) } else { result_str }
+                    if result_str.len() > 500 {
+                        format!("{}...", &result_str[..500])
+                    } else {
+                        result_str
+                    }
                 );
 
                 if is_timeout {
