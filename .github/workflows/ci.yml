@@ -76,7 +76,9 @@ jobs:
       github.event_name == 'pull_request' &&
       github.event.pull_request.draft == false &&
       needs.ci.result == 'success'
-    uses: ippoan/ci-workflows/.github/workflows/auto-merge.yml@main
+    uses: ippoan/ci-workflows/.github/workflows/auto-merge.yml@feat/gitleaks-in-auto-merge
+    with:
+      gitleaks_config_ref: feat/gitleaks-in-auto-merge
     permissions:
       contents: write
       pull-requests: write
