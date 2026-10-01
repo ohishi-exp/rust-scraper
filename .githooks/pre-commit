@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# staged 差分を gitleaks でスキャンし、秘密情報が含まれていれば commit を止める。
+# 有効化: git config core.hooksPath .githooks
+set -euo pipefail
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks が未導入です (https://github.com/gitleaks/gitleaks)" >&2
+  exit 1
+fi
+exec gitleaks git --pre-commit --staged --redact --no-banner

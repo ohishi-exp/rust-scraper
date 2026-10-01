@@ -9,7 +9,7 @@ cargo build
 cargo test
 
 # 実機テスト（Chrome表示モード）
-ETC_USERNAME=***REMOVED*** ETC_PASSWORD=***REMOVED*** cargo run --example scrape_test
+ETC_USERNAME=$ETC_USERNAME ETC_PASSWORD=$ETC_PASSWORD cargo run --example scrape_test
 ```
 
 ## 技術制約 (必ず守ること)

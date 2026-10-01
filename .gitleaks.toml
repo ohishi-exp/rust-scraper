@@ -1,0 +1,12 @@
+# 既定ルールに加え、ETC_* の平文代入を検知する (値が $VAR 参照・空・例示のものは除く)
+[extend]
+useDefault = true
+
+[[rules]]
+id = "etc-credentials-inline"
+description = "ETC_USERNAME / ETC_PASSWORD の平文代入"
+regex = '''ETC_(?:USERNAME|PASSWORD)=([^\s$"'<*][^\s"']*)'''
+keywords = ["etc_username", "etc_password"]
+[rules.allowlist]
+regexTarget = "match"
+regexes = ['''=your_\w+''', '''=\*\*\*REMOVED\*\*\*''']

@@ -1,3 +1,9 @@
 /target
 downloads/
 data/
+
+# secrets / local settings
+.claude/settings.local.json
+.env
+.env.*
+!.env.example
